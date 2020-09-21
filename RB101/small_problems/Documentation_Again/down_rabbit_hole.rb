@@ -1,0 +1,1 @@
+http://ruby-doc.org/stdlib/libdoc/psych/rdoc/Psych.html#method-c-load_file
