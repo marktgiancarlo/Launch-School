@@ -58,12 +58,12 @@ class TTTGame
     prompt('What are we playing to? Enter the number of rounds a player must win to achieve victory:')
     answer = nil
     loop do
-      answer = gets.chomp.to_i
-      break if (1..10).include?(answer)
+      answer = gets.chomp
+      break if Array(1..10).include?(answer.to_f)
 
       prompt('Try again. Please enter a number between 1 and 10:')
     end
-    answer
+    answer.to_i
   end
 
   def display_previous_move
@@ -288,7 +288,6 @@ class Player
       else
         break
       end
-      break if br
     end
     @@names << name
     name
