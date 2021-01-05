@@ -2,7 +2,9 @@ require 'io/console'
 
 # gameplay
 class TTTGame
-  attr_accessor :board
+  attr_accessor :board, :current_player, :most_recent_move,
+                :first_player_in_round, :player_one, :player_two,
+                :rounds_to_win
 
   def initialize
     display_intro_message
@@ -10,7 +12,7 @@ class TTTGame
     @player_one = create_player
     @player_two = create_player
     @current_player = nil
-    @rounds_to_win = rounds_to_win
+    @rounds_to_win = choose_num_rounds_to_win
     @first_player_in_round = nil
     @most_recent_move = nil
   end
@@ -40,7 +42,7 @@ class TTTGame
   def round
     loop do
       board.clear_screen_display_board
-      first_player_in_round if board.open_spaces.size == 9
+      select_first_player_in_round if board.open_spaces.size == 9
       break if end_of_round?
 
       if board.open_spaces.size != 9
@@ -54,7 +56,7 @@ class TTTGame
     board.reset
   end
 
-  def rounds_to_win
+  def choose_num_rounds_to_win
     prompt('What are we playing to? Enter the number of rounds a player must win to achieve victory:')
     answer = nil
     loop do
@@ -67,33 +69,33 @@ class TTTGame
   end
 
   def display_previous_move
-    prompt("#{@current_player.name} chose square ##{@most_recent_move}.")
+    prompt("#{current_player.name} chose square ##{most_recent_move}.")
   end
 
-  def first_player_in_round
-    @first_player_in_round = [@player_one, @player_two].sample
-    if (@player_one.score + @player_two.score).zero?
-      prompt("By luck of the draw #{@first_player_in_round.name} has been selected to go first.")
+  def select_first_player_in_round
+    first_player_in_round = [player_one, player_two].sample
+    if (player_one.score + player_two.score).zero?
+      prompt("By luck of the draw #{first_player_in_round.name} has been selected to go first.")
     else
-      prompt("#{@first_player_in_round.name} will go first this round.")
+      prompt("#{first_player_in_round.name} will go first this round.")
     end
-    @current_player = @first_player_in_round
+    @current_player = first_player_in_round
   end
 
   def current_player_turn
-    prompt("It's #{@current_player.name}'s turn!")
-    choice = @current_player.choose_placement(@board.open_spaces, @board)
-    board.place_marker(choice, @current_player.marker)
-    @most_recent_move = choice
+    prompt("It's #{current_player.name}'s turn!")
+    choice = current_player.choose_placement(board.open_spaces, board)
+    board.place_marker(choice, current_player.marker)
+    self.most_recent_move = choice
   end
 
   def move_to_next_player
-    @current_player = case @current_player
-                      when @player_one
-                        @player_two
-                      else
-                        @player_one
-                      end
+    self.current_player = case current_player
+                          when player_one
+                            player_two
+                          else
+                            player_one
+                          end
   end
 
   def end_of_round?
@@ -101,11 +103,11 @@ class TTTGame
   end
 
   def update_and_display_round_result
-    if @board.full? && !@board.three_in_a_row?
+    if board.full? && !board.three_in_a_row?
       prompt("It's a tie!")
     else
-      prompt("#{@current_player.name} wins!")
-      @current_player.score += 1
+      prompt("#{current_player.name} wins!")
+      current_player.score += 1
     end
   end
 
@@ -119,7 +121,7 @@ class TTTGame
   end
 
   def display_game_score
-    prompt("The score is #{@player_one.name}:#{@player_one.score} to #{@player_two.name}:#{@player_two.score}")
+    prompt("The score is #{player_one.name}:#{player_one.score} to #{player_two.name}:#{player_two.score}")
     prompt('Press any key to continue.')
     STDIN.getch
   end
@@ -130,7 +132,7 @@ class TTTGame
     prompt('Is this player a (a) human, or (b) computer?')
     loop do
       answer = gets.chomp.downcase
-      break if %w[a b].include?(answer)
+      break if %w(a b).include?(answer)
 
       prompt('Please choose (a) human or (b) computer.')
     end
@@ -138,15 +140,15 @@ class TTTGame
   end
 
   def end_of_game?
-    @player_one.score == @rounds_to_win || @player_two.score == @rounds_to_win
+    player_one.score == rounds_to_win || player_two.score == rounds_to_win
   end
 
   def display_winner
-    case @player_one.score
-    when @rounds_to_win
-      prompt("#{@player_one.name} wins this time! Good game.")
+    case player_one.score
+    when rounds_to_win
+      prompt("#{player_one.name} wins this time! Good game.")
     else
-      prompt("#{@player_two.name} wins this time! Good game.")
+      prompt("#{player_two.name} wins this time! Good game.")
     end
   end
 
@@ -154,12 +156,12 @@ class TTTGame
     answer = nil
     loop do
       prompt('Would you like to play again? (Y/N)')
-      answer = gets.chomp.upcase
-      break if %w[Y N].include?(answer)
+      answer = gets.chomp.downcase
+      break if %w(y n).include?(answer)
 
       prompt("I don't understand.")
     end
-    answer == 'Y'
+    answer == 'y'
   end
 
   def reset_game
@@ -167,17 +169,13 @@ class TTTGame
       prompt("Let's start over, shall we?")
       Player.names = []
       Player.markers = []
-      @player_one = create_player
-      @player_two = create_player
-      @rounds_to_win = rounds_to_win
-    else
-      @player_one.score = 0
-      @player_two.score = 0
+      self.player_one = create_player
+      self.player_two = create_player
+      rounds_to_win = choose_num_rounds_to_win
     end
-    @board.reset
-    @first_player_in_round = nil
-    @most_recent_move = nil
-    @current_player = nil
+    self.player_one.score = 0
+    self.player_two.score = 0
+    board.reset
   end
 
   def format_of_new_game
@@ -187,7 +185,7 @@ class TTTGame
     answer = nil
     loop do
       answer = gets.chomp.downcase
-      break if %w[a b].include?(answer)
+      break if %w(a b).include?(answer)
 
       prompt('Please enter [a] start a fresh game, or [b] play again with the same format.')
     end
@@ -197,17 +195,21 @@ end
 
 # board
 class Grid
-  WINNING_CONDITIONS = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 4, 7], [2, 5, 8], [3, 6, 9], [1, 5, 9], [3, 5, 7]].freeze
+  WINNING_CONDITIONS = [[1, 2, 3], [4, 5, 6], [7, 8, 9],
+                        [1, 4, 7], [2, 5, 8], [3, 6, 9],
+                        [1, 5, 9], [3, 5, 7]].freeze
 
-  attr_reader :spaces
+  attr_accessor :spaces
 
   def initialize
-    @spaces = { 1 => ' ', 2 => ' ', 3 => ' ', 4 => ' ', 5 => ' ', 6 => ' ', 7 => ' ', 8 => ' ', 9 => ' ' }
+    @spaces = { 1 => ' ', 2 => ' ', 3 => ' ',
+                4 => ' ', 5 => ' ', 6 => ' ',
+                7 => ' ', 8 => ' ', 9 => ' ' }
   end
 
   def open_spaces
     open_spaces = []
-    @spaces.each do |space, marker|
+    spaces.each do |space, marker|
       open_spaces << space if marker == ' '
     end
     open_spaces
@@ -215,13 +217,13 @@ class Grid
 
   def display_board
     puts '  1|  2|  3'
-    puts " #{@spaces[1]} | #{@spaces[2]} | #{@spaces[3]} "
+    puts " #{spaces[1]} | #{spaces[2]} | #{spaces[3]} "
     puts '___|___|___'
     puts '  4|  5|  6'
-    puts " #{@spaces[4]} | #{@spaces[5]} | #{@spaces[6]} "
+    puts " #{spaces[4]} | #{spaces[5]} | #{spaces[6]} "
     puts '___|___|___'
     puts '  7|  8|  9'
-    puts " #{@spaces[7]} | #{@spaces[8]} | #{@spaces[9]} "
+    puts " #{spaces[7]} | #{spaces[8]} | #{spaces[9]} "
     puts '   |   |   '
   end
 
@@ -231,7 +233,7 @@ class Grid
   end
 
   def place_marker(square, marker)
-    @spaces[square] = marker
+    spaces[square] = marker
   end
 
   def full?
@@ -240,13 +242,15 @@ class Grid
 
   def three_in_a_row?
     WINNING_CONDITIONS.any? do |condition|
-      line = [@spaces[condition[0]], @spaces[condition[1]], @spaces[condition[2]]]
+      line = [spaces[condition[0]], spaces[condition[1]], spaces[condition[2]]]
       line.uniq.size == 1 && (line.uniq[0] != ' ')
     end
   end
 
   def reset
-    @spaces = { 1 => ' ', 2 => ' ', 3 => ' ', 4 => ' ', 5 => ' ', 6 => ' ', 7 => ' ', 8 => ' ', 9 => ' ' }
+    self.spaces = { 1 => ' ', 2 => ' ', 3 => ' ',
+                    4 => ' ', 5 => ' ', 6 => ' ',
+                    7 => ' ', 8 => ' ', 9 => ' ' }
   end
 end
 
@@ -329,7 +333,9 @@ end
 
 # computer player
 class Computer < Player
-  WINNING_CONDITIONS = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [1, 4, 7], [2, 5, 8], [3, 6, 9], [1, 5, 9], [3, 5, 7]].freeze
+  WINNING_CONDITIONS = [[1, 2, 3], [4, 5, 6], [7, 8, 9],
+                        [1, 4, 7], [2, 5, 8], [3, 6, 9],
+                        [1, 5, 9], [3, 5, 7]].freeze
 
   def choose_placement(grid_spaces, board)
     winning_square = winning_square(board)
