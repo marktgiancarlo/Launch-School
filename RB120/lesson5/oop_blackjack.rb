@@ -1,12 +1,13 @@
 # gameplay
 class BlackjackGame
-  attr_accessor :deck, :dealer, :human
+  attr_accessor :deck, :dealer, :human, :display_dealer_card
 
   def initialize
     @deck = Deck.new
     @dealer = Dealer.new
     @human = Human.new
-    intro_message_and_select_name
+    @display_dealer_card = false
+    display_intro_message_and_select_name
   end
 
   def play
@@ -16,8 +17,10 @@ class BlackjackGame
 
       reset
     end
-    outro_message
+    display_outro_message
   end
+
+  private
 
   def round
     place_bet
@@ -27,11 +30,15 @@ class BlackjackGame
     compare_hands
   end
 
-  private
-
-  def outro_message
-    prompt("You won $#{human.balance - 100}!")
+  def display_outro_message
+    display
+    prompt("You started with $100 and ended with $#{format_num(human.balance)}.")
+    prompt("You #{human.balance - 100 >= 0 ? 'won' : 'lost'} $#{format_num((human.balance - 100).abs)}!")
     prompt('Thanks for playing! Goodbye.')
+  end
+
+  def format_num(balance)
+    sprintf('%.2f', balance)
   end
 
   def cash_out?
@@ -60,7 +67,7 @@ class BlackjackGame
     gets.chomp
   end
 
-  def intro_message_and_select_name
+  def display_intro_message_and_select_name
     name = nil
     clear_screen
     prompt('WELCOME TO BLACKJACK!')
@@ -86,39 +93,61 @@ class BlackjackGame
 
   def display
     clear_screen
-    display_table(dealer.name, dealer.hand)
+    display_table(dealer.name, dealer.hand, true)
     display_table(human.name, human.hand)
-    display_bet_and_balance
+    display_bet_balance_hand_total
   end
 
-  def display_bet_and_balance
+  def display_bet_balance_hand_total
     puts '-' * 55
-    puts '|' + "BET: $#{human.bet}".center(26) + '|' +
-         "BALANCE: $#{human.balance}".center(26) + '|'
+    puts '|' + "BET: $#{format_num(human.bet)}".center(26) + '|' +
+         "BALANCE: $#{format_num(human.balance)}".center(26) + '|'
+    puts '|' + "HAND TOTAL: #{human.hand.hand_total}".center(26) + '|' +
+         ' ' * 26 + '|'
     puts '_' * 55
   end
 
-  def display_table(name, hand)
+  def display_table(name, hand, dealer_table=false)
     puts '-' * 55
-    display_hand(hand)
+    display_hand(hand, dealer_table)
     display_name(name)
   end
 
-  def display_hand(hand)
-    card_display = ['', '', '', '', '']
-    hand.cards.each_with_index do |card, i|
-      card_display[0] += '+---+'
-      card_display[1] += "| #{card.suit} |"
-      card_display[2] += '+---+'
-      card_display[3] += '|' + card.value.to_s.center(3) + '|'
-      card_display[4] += '+---+'
-      if i < hand.cards.length - 1
-        card_display.each { |line| line + ' ' }
-      end
-    end
+  def display_hand(hand, dealer_table)
+    cards = choose_cards_to_display(hand, dealer_table)
+    card_display = create_printable_cards(cards)
     card_display.each do |line|
       puts '|' + line.to_s.center(53) + '|'
     end
+  end
+
+  def create_printable_cards(cards)
+    lines = ['', '', '', '', '']
+    cards.each do |card|
+      lines[0] += '+---+ '
+      lines[1] += "| #{card.suit} | "
+      lines[2] += '+---+ '
+      lines[3] += '|' + card.value.to_s.center(3) + '| '
+      lines[4] += '+---+ '
+    end
+    lines
+  end
+
+  def choose_cards_to_display(hand, dealer_table)
+    cards = [Card.new(' ', ' '), Card.new(' ', ' ')]
+    case dealer_table
+    when true
+      if display_dealer_card
+        cards = hand.cards
+      elsif !hand.cards.empty?
+        cards = [Card.new(' ', ' ')] + [hand.cards[1]]
+      end
+    when false
+      if !hand.cards.empty?
+        cards = hand.cards
+      end
+    end
+    cards
   end
 
   def display_name(name)
@@ -127,6 +156,7 @@ class BlackjackGame
   end
 
   def place_bet
+    self.display_dealer_card = false
     display
     bet = nil
     prompt('What amount would you like to wager?')
@@ -163,6 +193,7 @@ class BlackjackGame
       display
       hit_or_stay
     end
+    self.display_dealer_card = true
   end
 
   def dealer_turn
@@ -203,27 +234,63 @@ class BlackjackGame
   end
 
   def compare_hands
+    if someone_natural?
+      determine_natural_winner
+    elsif someone_five_card?
+      determine_five_card_winner
+    elsif someone_busted?
+      determine_bust_winner
+    else
+      determine_normal_winner
+    end
+  end
+
+  def someone_natural?
+    human.hand.natural_21? || dealer.hand.natural_21?
+  end
+
+  def determine_natural_winner
     if human.hand.natural_21?
       if dealer.hand.natural_21?
         tie
       else
         human_wins(2.5)
       end
-    elsif human.hand.five_cards_drawn
+    end
+  end
+
+  def someone_five_card?
+    human.hand.five_cards_drawn || dealer.hand.five_cards_drawn
+  end
+
+  def determine_five_card_winner
+    if human.hand.five_cards_drawn
       if dealer.hand.five_cards_drawn
         tie
       else
         human_wins(2)
       end
-    elsif human.hand.busted
+    end
+  end
+
+  def someone_busted?
+    human.hand.busted || dealer.hand.busted
+  end
+
+  def determine_bust_winner
+    if human.hand.busted
       dealer_wins
-    elsif dealer.hand.busted
+    else
       human_wins(2)
-    elsif human.hand.hand_total > dealer.hand.hand_total
+    end
+  end
+
+  def determine_normal_winner
+    if human.hand.hand_total > dealer.hand.hand_total
       human_wins(2)
-    elsif dealer.hand.hand_total > human.hand.hand_total
+    elsif dealer.hand.hand_total < human.hand.hand_total
       dealer_wins
-    elsif dealer.hand.hand_total == human.hand.hand_total
+    else
       tie
     end
   end
@@ -246,7 +313,7 @@ class BlackjackGame
   def human_wins(bet_multiplier)
     human.balance += human.bet * bet_multiplier
     display
-    prompt("Dealer: #{dealer.hand.hand_total} - #{human.name}:" +
+    prompt("Dealer: #{dealer.hand.hand_total} - #{human.name}: " +
             human.hand.hand_total.to_s)
     prompt('You win!')
   end
@@ -297,12 +364,15 @@ class Card
     @numerical_value = set_numerical_value
   end
 
+  private
+
   def set_numerical_value
     case value
     when 'J' then 10
     when 'Q' then 10
     when 'K' then 10
     when 'A' then 0
+    when ' ' then ' '
     else
       value.to_i
     end
@@ -359,6 +429,12 @@ class Hand
     false
   end
 
+  def natural_21?
+    cards.size == 2 && hand_total == 21
+  end
+
+  private
+
   def value_of_aces(num_aces, total)
     case num_aces
     when 0 then 0
@@ -369,10 +445,6 @@ class Hand
         num_aces
       end
     end
-  end
-
-  def natural_21?
-    cards.size == 2 && hand_total == 21
   end
 end
 
