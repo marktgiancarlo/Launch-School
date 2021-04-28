@@ -1,0 +1,11 @@
+<h1><%= @name %></h1>
+
+<h2>email</h2>
+<p><%= @email %></p>
+
+<h2>interests</h2>
+<p><%= @interests.join(", ") %></p>
+
+<% @other_users.each do |user| %>
+    <a href="/users/<%= user.to_s %>"><%= user.to_s %></a>
+<% end %>

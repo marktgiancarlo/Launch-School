@@ -1,0 +1,1 @@
+assert_equal(Numeric, value.class)

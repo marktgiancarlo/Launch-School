@@ -1,0 +1,1 @@
+assert_includes(value.class.ancestors, Numeric)
